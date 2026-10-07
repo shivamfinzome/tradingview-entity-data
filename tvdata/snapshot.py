@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from ._http import HEADERS, TIMEOUT, TradingViewError
+from ._http import HEADERS, TIMEOUT, NotFound, TradingViewError
 
 SCAN_URL = "https://scanner.tradingview.com/global/scan"
 
@@ -28,8 +28,8 @@ FIELDS: dict[str, dict[str, str]] = {
     },
     "quote": {
         "close": "Last price",
-        "change": "Change %",
-        "change_abs": "Change",
+        "change": "Change",
+        "change_abs": "Change (absolute)",
         "open": "Open",
         "high": "High",
         "low": "Low",
@@ -56,9 +56,9 @@ FIELDS: dict[str, dict[str, str]] = {
         "enterprise_value_ebitda_ttm": "EV/EBITDA (TTM)",
         "earnings_per_share_basic_ttm": "EPS basic (TTM)",
         "earnings_per_share_diluted_ttm": "EPS diluted (TTM)",
-        "dividends_yield_current": "Dividend yield %",
+        "dividends_yield_current": "Dividend yield",
         "dps_common_stock_prim_issue_fy": "Dividend per share (FY)",
-        "dividend_payout_ratio_ttm": "Payout ratio % (TTM)",
+        "dividend_payout_ratio_ttm": "Payout ratio (TTM)",
         "ex_dividend_date_recent": "Last ex-dividend date",
         "beta_1_year": "Beta (1Y)",
         "total_shares_outstanding": "Shares outstanding",
@@ -67,21 +67,21 @@ FIELDS: dict[str, dict[str, str]] = {
     "financials": {
         "total_revenue_ttm": "Revenue (TTM)",
         "total_revenue_fy": "Revenue (FY)",
-        "total_revenue_yoy_growth_ttm": "Revenue growth % (TTM YoY)",
+        "total_revenue_yoy_growth_ttm": "Revenue growth (TTM YoY)",
         "gross_profit_ttm": "Gross profit (TTM)",
         "ebitda_ttm": "EBITDA (TTM)",
         "net_income_ttm": "Net income (TTM)",
         "net_income_fy": "Net income (FY)",
-        "earnings_per_share_diluted_yoy_growth_ttm": "EPS growth % (TTM YoY)",
-        "gross_margin_ttm": "Gross margin % (TTM)",
-        "operating_margin_ttm": "Operating margin % (TTM)",
-        "net_margin_ttm": "Net margin % (TTM)",
+        "earnings_per_share_diluted_yoy_growth_ttm": "EPS growth (TTM YoY)",
+        "gross_margin_ttm": "Gross margin (TTM)",
+        "operating_margin_ttm": "Operating margin (TTM)",
+        "net_margin_ttm": "Net margin (TTM)",
         "free_cash_flow_ttm": "Free cash flow (TTM)",
-        "return_on_equity_fq": "ROE % (last quarter)",
-        "return_on_equity_fy": "ROE % (FY)",
-        "return_on_assets_fq": "ROA % (last quarter)",
-        "return_on_assets_fy": "ROA % (FY)",
-        "return_on_invested_capital_fq": "ROIC % (last quarter)",
+        "return_on_equity_fq": "ROE (last quarter)",
+        "return_on_equity_fy": "ROE (FY)",
+        "return_on_assets_fq": "ROA (last quarter)",
+        "return_on_assets_fy": "ROA (FY)",
+        "return_on_invested_capital_fq": "ROIC (last quarter)",
         "total_assets_fq": "Total assets (last quarter)",
         "total_assets_fy": "Total assets (FY)",
         "total_debt_fq": "Total debt (last quarter)",
@@ -104,17 +104,17 @@ FIELDS: dict[str, dict[str, str]] = {
         "earnings_release_next_date": "Next earnings date",
     },
     "performance": {
-        "Perf.W": "1 week %",
-        "Perf.1M": "1 month %",
-        "Perf.3M": "3 months %",
-        "Perf.6M": "6 months %",
-        "Perf.YTD": "Year to date %",
-        "Perf.Y": "1 year %",
-        "Perf.5Y": "5 years %",
-        "Perf.All": "All time %",
-        "Volatility.D": "Volatility % (day)",
-        "Volatility.W": "Volatility % (week)",
-        "Volatility.M": "Volatility % (month)",
+        "Perf.W": "1 week",
+        "Perf.1M": "1 month",
+        "Perf.3M": "3 months",
+        "Perf.6M": "6 months",
+        "Perf.YTD": "Year to date",
+        "Perf.Y": "1 year",
+        "Perf.5Y": "5 years",
+        "Perf.All": "All time",
+        "Volatility.D": "Volatility (day)",
+        "Volatility.W": "Volatility (week)",
+        "Volatility.M": "Volatility (month)",
     },
     "technicals": {
         "Recommend.All": "Technical rating (-1 sell .. +1 buy)",
@@ -141,6 +141,16 @@ FIELDS: dict[str, dict[str, str]] = {
 }
 
 EPOCH_FIELDS = {"ex_dividend_date_recent", "earnings_release_date", "earnings_release_next_date"}
+# TradingView sends these as 2.66 for 2.66%.
+PERCENT_FIELDS = {
+    "change", "dividends_yield_current", "dividend_payout_ratio_ttm", "total_revenue_yoy_growth_ttm",
+    "earnings_per_share_diluted_yoy_growth_ttm", "gross_margin_ttm", "operating_margin_ttm", "net_margin_ttm",
+    "return_on_equity_fq", "return_on_equity_fy", "return_on_assets_fq", "return_on_assets_fy",
+    "return_on_invested_capital_fq", "Perf.W", "Perf.1M", "Perf.3M", "Perf.6M", "Perf.YTD", "Perf.Y",
+    "Perf.5Y", "Perf.All", "Volatility.D", "Volatility.W", "Volatility.M",
+}
+# "rating" is derived from Recommend.All in snapshot(); it is not a TradingView field.
+LABELS = {field: label for group in FIELDS.values() for field, label in group.items()} | {"rating": "Technical rating"}
 
 
 def rating_label(score: float | None) -> str | None:
@@ -172,7 +182,7 @@ def snapshot(ticker: str) -> dict[str, dict]:
         raise TradingViewError(f"snapshot failed for {ticker}: HTTP {resp.status_code} {resp.text[:200]}")
     rows = resp.json().get("data") or []
     if not rows:
-        raise TradingViewError(f"TradingView has no symbol {ticker}")
+        raise NotFound(f"TradingView has no symbol {ticker}")
 
     values = dict(zip(columns, rows[0]["d"]))
     out: dict[str, dict] = {}

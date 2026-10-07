@@ -15,3 +15,7 @@ TIMEOUT = 20
 
 class TradingViewError(RuntimeError):
     """TradingView returned an error, or nothing usable, for the request."""
+
+
+class NotFound(TradingViewError):
+    """TradingView answered, but has no such symbol."""

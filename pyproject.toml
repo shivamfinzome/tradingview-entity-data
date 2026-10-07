@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tvdata"
+version = "0.1.0"
+description = "Give an entity name, get its TradingView data"
+requires-python = ">=3.11"
+dependencies = ["requests", "websocket-client", "tzdata"]
+
+[project.optional-dependencies]
+web = ["fastapi", "uvicorn"]
+
+[tool.setuptools]
+packages = ["tvdata"]
+
+[tool.setuptools.package-data]
+tvdata = ["static/*"]

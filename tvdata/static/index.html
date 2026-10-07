@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradingView data</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23F3F5F1'/%3E%3Crect x='3' y='4' width='7' height='2.5' fill='%2322262B'/%3E%3Crect x='3' y='10' width='10' height='2.5' fill='%232447C6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<style>
+  /* Graphite on paper. Blue is the pen: anything you can type in or press. Red marks an error. */
+  :root {
+    color-scheme: light dark;
+    --paper: #F3F5F1;
+    --sheet: #FDFEFC;
+    --ink: #22262B;
+    --ink-2: #4A515B;
+    --ink-3: #666D77;
+    --rule: #D3D9D1;
+    --blue: #2447C6;
+    --red: #C8362E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #15171B;
+      --sheet: #1E2126;
+      --ink: #ECEEF0;
+      --ink-2: #BDC3CB;
+      --ink-3: #959DA8;
+      --rule: #33383F;
+      --blue: #9DB2FF;
+      --red: #F26D64;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font: 400 1rem/1.5 "Archivo", "Segoe UI", system-ui, sans-serif;
+    font-stretch: 100%;
+  }
+  p, h1, h2, h3, dl, dd, ul { margin: 0; padding: 0; }
+  ul { list-style: none; }
+  table { width: 100%; border-collapse: collapse; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  .page {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 6vw, 4.5rem) clamp(1rem, 4vw, 3rem) 4rem;
+  }
+
+  /* The question: the label is the headline and the input finishes the sentence. */
+  .ask { font-size: clamp(2.5rem, 8vw, 5.5rem); }
+  .ask-lead {
+    display: block;
+    font-size: inherit;
+    font-stretch: 68%;
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+  }
+  .ask-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem; margin-top: 0.08em; }
+  .combo { position: relative; flex: 1 1 16rem; min-width: 0; }
+  .ask-input {
+    width: 100%;
+    padding: 0 0 0.06em;
+    border: 0;
+    border-bottom: 3px solid var(--ink);
+    border-radius: 0;
+    background: transparent;
+    color: var(--blue);
+    caret-color: var(--blue);
+    font: inherit;
+    font-stretch: 68%;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+  .ask-input::placeholder { color: color-mix(in srgb, var(--ink) 26%, transparent); opacity: 1; }
+  .ask-input:focus { outline: none; border-bottom-color: var(--blue); box-shadow: 0 3px 0 var(--blue); }
+
+  .button {
+    min-height: 2.75rem;
+    padding: 0.7rem 1.1rem;
+    border: 1.5px solid var(--blue);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--blue);
+    font: 600 1rem/1.2 inherit;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .button:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); }
+  .button-primary {
+    margin-bottom: 0.5rem;
+    padding: 0.9rem 1.5rem;
+    background: var(--blue);
+    color: var(--paper);
+    font-size: 1.125rem;
+  }
+  .button-primary:hover { background: color-mix(in srgb, var(--blue) 86%, var(--ink)); }
+
+  .link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--blue);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+    cursor: pointer;
+  }
+  .examples { margin-top: 1.25rem; color: var(--ink-2); font-size: 1rem; }
+  .status { min-height: 1.5rem; margin-top: 0.75rem; color: var(--ink-2); font-size: 1rem; max-width: 70ch; }
+  .status-error { padding-left: 0.75rem; border-left: 3px solid var(--red); color: var(--ink); }
+
+  .suggestions {
+    position: absolute;
+    z-index: 10;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    right: 0;
+    max-height: 22rem;
+    overflow: auto;
+    padding: 0.25rem;
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    background: var(--sheet);
+    font-size: 1rem;
+  }
+  .suggestion {
+    display: grid;
+    grid-template-columns: minmax(9rem, max-content) 1fr auto;
+    gap: 0 1rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .suggestion:hover, .suggestion[aria-selected="true"] { background: color-mix(in srgb, var(--blue) 13%, transparent); }
+  .suggestion-ticker { font-weight: 700; }
+  .suggestion-name { overflow: hidden; color: var(--ink-2); text-overflow: ellipsis; white-space: nowrap; }
+  .suggestion-type { color: var(--ink-3); }
+
+  /* The answer. */
+  .sheet { margin-top: 2.5rem; padding-top: 2rem; border-top: 3px solid var(--ink); }
+  .busy { opacity: 0.45; pointer-events: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .sheet, .history-body { transition: opacity 0.15s; }
+  }
+
+  .block-title { font-stretch: 80%; font-weight: 750; font-size: 1.75rem; line-height: 1.1; }
+  .summary { max-width: 70ch; margin-top: 1rem; color: var(--ink-2); }
+
+  .controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem 1.25rem; margin-top: 1.25rem; }
+  .field { display: grid; gap: 0.3rem; color: var(--ink-2); font-size: 0.875rem; }
+  .field-input {
+    min-width: 9rem;
+    height: 2.75rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--ink-3);
+    border-radius: 3px;
+    background: var(--sheet);
+    color: var(--ink);
+    font: inherit;
+    font-size: 1rem;
+  }
+  .export-note { min-height: 1.5rem; margin-top: 0.75rem; color: var(--ink-2); }
+
+  .indicators { margin-top: 1.25rem; }
+  .indicator-combo { max-width: 34rem; }
+  .indicator-input { width: 100%; }
+  .indicator-note { max-width: 70ch; margin-top: 0.5rem; color: var(--ink-2); }
+  .chosen { max-width: 62rem; margin-top: 0.5rem; }
+  .chosen-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.6rem 1.25rem;
+    padding: 0.65rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  .chosen-name { flex: 1 1 13rem; align-self: center; color: var(--ink-2); }
+  .chosen-short { margin-right: 0.5rem; color: var(--ink); font-weight: 700; }
+  .chosen-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem 1rem; }
+  .field-input-small { width: 7rem; min-width: 0; height: 2.25rem; padding: 0.3rem 0.5rem; }
+  .field-check { display: flex; align-items: center; gap: 0.4rem; height: 2.25rem; color: var(--ink-2); font-size: 0.875rem; }
+  .chosen-row .link { align-self: center; }
+
+  .table-scroll { overflow-x: auto; }
+  .bars { min-width: 34rem; margin-top: 0.75rem; font-variant-numeric: tabular-nums; }
+  .bars th, .bars td {
+    padding: 0.45rem 0 0.45rem 1.5rem;
+    border-bottom: 1px solid var(--rule);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .bars th:first-child { padding-left: 0; text-align: left; }
+  .bars thead th { border-bottom: 1.5px solid var(--ink); color: var(--ink-2); font-size: 0.875rem; font-weight: 600; }
+  .bars tbody th { font-weight: 400; }
+
+
+  .foot { max-width: 70ch; margin-top: 5rem; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 0.875rem; }
+
+  @media (max-width: 40rem) {
+    .button-primary { margin-bottom: 0; }
+    .suggestion { grid-template-columns: 1fr auto; }
+    .suggestion-name { grid-column: 1 / -1; grid-row: 2; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <form class="ask" id="ask" role="search" autocomplete="off">
+    <h1 class="ask-lead"><label for="q">TradingView data for</label></h1>
+    <div class="ask-row">
+      <div class="combo">
+        <input class="ask-input" id="q" name="q" type="text" placeholder="Reliance Industries" spellcheck="false"
+               role="combobox" aria-expanded="false" aria-controls="suggestions" aria-autocomplete="list" autofocus>
+        <ul class="suggestions" id="suggestions" role="listbox" aria-label="Matching symbols" hidden></ul>
+      </div>
+      <button class="button button-primary" type="submit">Look up</button>
+    </div>
+    <p class="examples">
+      Try <button class="link" type="button" data-q="HDFC Bank">HDFC Bank</button>,
+      <button class="link" type="button" data-q="Nifty 50">Nifty 50</button> or
+      <button class="link" type="button" data-q="Bitcoin">Bitcoin</button>, or enter a ticker such as
+      <button class="link" type="button" data-q="NSE:TMCV">NSE:TMCV</button>.
+    </p>
+    <p class="status" id="status" role="status"></p>
+  </form>
+
+  <main class="sheet" id="sheet" hidden>
+    <section aria-labelledby="history-title">
+      <h2 class="block-title" id="history-title">Price history</h2>
+      <div class="controls">
+        <label class="field">Bar size
+          <select class="field-input" id="interval">
+            <option value="1m">1 minute</option>
+            <option value="5m">5 minutes</option>
+            <option value="15m">15 minutes</option>
+            <option value="30m">30 minutes</option>
+            <option value="1h">1 hour</option>
+            <option value="4h">4 hours</option>
+            <option value="1D" selected>1 day</option>
+            <option value="1W">1 week</option>
+            <option value="1M">1 month</option>
+          </select>
+        </label>
+        <label class="field">Number of bars
+          <input class="field-input" id="bars" type="number" min="1" max="20000" step="1" value="250" inputmode="numeric">
+        </label>
+        <button class="button" type="button" id="export-history">Export price history CSV</button>
+      </div>
+      <div class="indicators">
+        <div class="field">
+          <label for="indicator-q">Add indicator columns</label>
+          <div class="combo indicator-combo">
+            <input class="field-input indicator-input" id="indicator-q" type="text" spellcheck="false" autocomplete="off"
+                   placeholder="RSI, Bollinger Bands, SMA(200)" role="combobox" aria-expanded="false"
+                   aria-controls="indicator-suggestions" aria-autocomplete="list">
+            <ul class="suggestions" id="indicator-suggestions" role="listbox" aria-label="Matching indicators" hidden></ul>
+          </div>
+        </div>
+        <p class="indicator-note" id="indicator-note" role="status"></p>
+        <ul class="chosen" id="chosen"></ul>
+      </div>
+      <div class="history-body" id="history-body">
+        <p class="summary" id="history-summary"></p>
+        <div class="table-scroll">
+          <table class="bars">
+            <thead><tr id="bars-head"></tr></thead>
+            <tbody id="bars-rows"></tbody>
+          </table>
+        </div>
+      </div>
+      <p class="export-note" id="export-note" role="status"></p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    Data comes from the endpoints TradingView's own website calls, without signing in. Exchange quotes are
+    delayed, and TradingView can change or withdraw these endpoints at any time.
+  </footer>
+</div>
+
+<script>
+'use strict';
+
+const $ = (id) => document.getElementById(id);
+const TICKER = /^[A-Za-z0-9_]+:[A-Za-z0-9_.!&\-\/]+$/;
+const LATEST_ROWS = 10;
+const MAX_BARS = 20000;
+const MAX_INDICATORS = 10;
+const MAX_INPUT_FIELDS = 6;  // per indicator; the rest keep TradingView's defaults
+const PRICE_COLUMNS = ['time', 'open', 'high', 'low', 'close', 'volume'];
+const state = {
+  data: null,      // last /api/entity response
+  bars: null,      // {interval, bars: [...]} currently previewed and exported
+  barsError: '',   // why there are none, when the request failed
+  asked: 250,
+  indicators: [],  // chosen indicators: /api/indicator responses plus `values` by input id
+  locale: 'en-IN',
+  lookupSeq: 0,
+  historySeq: 0,
+};
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
+  node.append(...children);  // strings become text nodes: TradingView's text is never parsed as HTML
+  return node;
+}
+
+async function api(path, params) {
+  const url = new URL(path, location.origin);
+  for (const [key, value] of Object.entries(params || {})) {
+    for (const item of [].concat(value)) url.searchParams.append(key, item);
+  }
+  let resp;
+  try {
+    resp = await fetch(url);
+  } catch {
+    throw Object.assign(new Error('offline'), { status: 0 });
+  }
+  const body = await resp.json().catch(() => null);
+  if (!resp.ok) {
+    const detail = body && typeof body.detail === 'string' ? body.detail : `HTTP ${resp.status}`;
+    throw Object.assign(new Error(detail), { status: resp.status });
+  }
+  return body;
+}
+
+/* ---------- formatting ---------- */
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const TWO = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+const grouped = (v, options) => (v < 0 ? '−' : '') + Math.abs(v).toLocaleString(state.locale, options);
+
+function formatNumber(v) {
+  const abs = Math.abs(v);
+  for (const [size, suffix] of [[1e12, 'T'], [1e9, 'B'], [1e6, 'M']]) {
+    if (abs >= size) return grouped(v / size, TWO) + suffix;
+  }
+  if (Number.isInteger(v)) return grouped(v);
+  return grouped(v, abs >= 0.1 ? TWO : { maximumSignificantDigits: 4 });
+}
+
+// Prices always keep their decimals; sub-unit prices (small-cap coins) keep significant digits instead.
+const formatPrice = (v) => grouped(v, Math.abs(v) >= 1 ? TWO : { maximumSignificantDigits: 4 });
+
+// Bars are already stamped in exchange time: "2026-10-06", or "2026-10-06T09:15:00+05:30" intraday.
+function formatBarTime(time) {
+  const [year, month, day] = time.slice(0, 10).split('-').map(Number);
+  const date = `${day} ${MONTHS[month - 1]} ${year}`;
+  return time.length > 10 ? `${date}, ${time.slice(11, 16)}` : date;
+}
+
+const sentence = (text) => text[0].toUpperCase() + text.slice(1).replace(/\.$/, '') + '.';
+
+/* ---------- lookup ---------- */
+
+function setStatus(text, isError = false) {
+  $('status').textContent = text;
+  $('status').classList.toggle('status-error', isError);
+}
+
+const OFFLINE = 'This page cannot reach its local server. Start it again with: python -m uvicorn tvdata.web:app --port 8770';
+
+function errorText(err, name) {
+  if (err.status === 404) {
+    return TICKER.test(name)
+      ? `TradingView has no data for ${name}. Some listings its search returns, such as exchange-traded bonds, have none.`
+      : `No TradingView symbol matches “${name}”. Check the spelling, or enter a ticker such as NSE:RELIANCE.`;
+  }
+  if (err.status === 0) return OFFLINE;
+  if (err.status === 429) return sentence(err.message);
+  if (err.status === 400 || err.status === 422) return sentence(`That request was not valid: ${err.message}`);
+  return `TradingView did not return data (${err.message}). Try again in a moment.`;
+}
+
+function barsWanted() {
+  const n = Number($('bars').value);
+  return Number.isInteger(n) && n >= 1 && n <= MAX_BARS ? n : null;
+}
+
+async function lookup(name, { push = true } = {}) {
+  name = name.trim();
+  entityBox.close();
+  if (!name) {
+    setStatus('Type a company, index or coin, or a ticker such as NSE:RELIANCE.');
+    $('q').focus();
+    return;
+  }
+  const seq = ++state.lookupSeq;
+  setStatus(`Looking up ${name}…`);
+  $('sheet').classList.add('busy');
+  try {
+    // The snapshot comes first; the bars follow in loadHistory, so a problem there stays in its section.
+    const data = await api('/api/entity', { name, with_history: false });
+    if (seq !== state.lookupSeq) return;
+    state.data = data;
+    state.bars = null;
+    state.barsError = '';
+    showSheet();
+    setStatus('');
+    document.title = `${data.ticker} | TradingView data`;
+    if (push) history.pushState(null, '', '?q=' + encodeURIComponent(name));
+    loadHistory();
+  } catch (err) {
+    if (seq !== state.lookupSeq) return;
+    state.data = null;
+    $('sheet').hidden = true;
+    setStatus(errorText(err, name), true);
+  } finally {
+    if (seq === state.lookupSeq) $('sheet').classList.remove('busy');
+  }
+}
+
+/* ---------- rendering ---------- */
+
+function showSheet() {
+  const { data } = state;
+  const currency = (data.snapshot.profile || {}).currency || data.match.currency;
+  state.locale = currency === 'INR' ? 'en-IN' : 'en-US';  // lakh/crore digit grouping for rupee prices
+  renderHistory();
+  $('export-note').textContent = '';
+  $('sheet').hidden = false;
+}
+
+// "NSE:TMPV (Tata Motors Passenger Vehicles Ltd)": which symbol the name was matched to.
+function symbolText() {
+  const { ticker, match } = state.data;
+  return match.description ? `${ticker} (${match.description})` : ticker;
+}
+
+function renderHistory() {
+  const head = $('bars-head');
+  const rows = $('bars-rows');
+  head.textContent = '';
+  rows.textContent = '';
+  const hist = state.bars;
+  if (!hist || !hist.bars.length) {
+    $('history-summary').textContent = state.barsError
+      ? sentence(`Price history for ${symbolText()} did not load: ${state.barsError}`)
+      : hist ? `TradingView returned no bars for ${symbolText()} at this bar size.`
+      : `Loading price history for ${symbolText()}…`;
+    return;
+  }
+  const bars = hist.bars;
+  const extra = Object.keys(bars[0]).filter((column) => !PRICE_COLUMNS.includes(column));
+  const size = $('interval').selectedOptions[0].textContent;
+  const short = bars.length < state.asked ? ` You asked for ${grouped(state.asked)}; this is all TradingView has.` : '';
+  const shown = Math.min(LATEST_ROWS, bars.length);
+  const withColumns = extra.length ? ` with ${extra.length} indicator ${extra.length === 1 ? 'column' : 'columns'}` : '';
+  $('history-summary').textContent =
+    `${symbolText()}: ${grouped(bars.length)} bars of ${size} each, ${formatBarTime(bars[0].time)} to ${formatBarTime(bars.at(-1).time)}.`
+    + `${short} The export has every bar${withColumns}; the latest ${shown} are below.`;
+
+  const titles = [bars[0].time.length > 10 ? 'Bar opens' : 'Date', 'Open', 'High', 'Low', 'Close', 'Volume', ...extra];
+  head.append(...titles.map((title) => el('th', { scope: 'col' }, title)));
+  for (const bar of bars.slice(-shown).reverse()) {
+    rows.append(el('tr', {},
+      el('th', { scope: 'row' }, formatBarTime(bar.time)),
+      ...['open', 'high', 'low', 'close'].map((key) => el('td', {}, formatPrice(bar[key]))),
+      el('td', {}, bar.volume == null ? '' : formatNumber(bar.volume)),
+      ...extra.map((column) => el('td', {}, bar[column] == null ? '' : formatNumber(bar[column])))));
+  }
+}
+
+/* ---------- price history ---------- */
+
+// "STD;RSI", or "STD;RSI(in_0=21,in_1=hlc3)" when inputs differ from TradingView's defaults.
+function indicatorSpec(indicator) {
+  const changed = indicator.inputs
+    .filter((inp) => indicator.values[inp.id] !== '' && String(indicator.values[inp.id]) !== String(inp.default))
+    .map((inp) => `${inp.id}=${indicator.values[inp.id]}`);
+  return changed.length ? `${indicator.id}(${changed.join(',')})` : indicator.id;
+}
+
+async function loadHistory() {
+  if (!state.data) return;
+  const bars = barsWanted();
+  if (bars === null) {
+    $('history-summary').textContent = `Enter a whole number of bars from 1 to ${grouped(MAX_BARS)}.`;
+    return;
+  }
+  const seq = ++state.historySeq;
+  $('history-body').classList.add('busy');  // keep the last table on screen, dimmed, until the new one is in
+  try {
+    const hist = await api('/api/history', {
+      ticker: state.data.ticker, interval: $('interval').value, bars, indicator: state.indicators.map(indicatorSpec),
+    });
+    if (seq !== state.historySeq) return;
+    state.bars = hist;
+    state.barsError = '';
+    state.asked = bars;
+  } catch (err) {
+    if (seq !== state.historySeq) return;
+    state.bars = null;
+    state.barsError = err.status === 0 ? OFFLINE : err.message;
+  }
+  $('history-body').classList.remove('busy');
+  renderHistory();
+}
+
+let historyTimer = 0;
+function scheduleHistory() {
+  clearTimeout(historyTimer);
+  historyTimer = setTimeout(loadHistory, 500);
+}
+
+/* ---------- indicators ---------- */
+
+function setIndicatorNote(text) {
+  $('indicator-note').textContent = text;
+}
+
+async function addIndicator(spec) {
+  spec = spec.trim();
+  if (!spec) return;
+  if (state.indicators.length >= MAX_INDICATORS) {
+    setIndicatorNote(`TradingView computes at most ${MAX_INDICATORS} indicators at a time. Remove one to add another.`);
+    return;
+  }
+  setIndicatorNote(`Adding ${spec}…`);
+  try {
+    const indicator = await api('/api/indicator', { spec });
+    indicator.values = Object.fromEntries(indicator.inputs.map((inp) => [inp.id, inp.value]));
+    state.indicators.push(indicator);
+    $('indicator-q').value = '';
+    setIndicatorNote('');
+    renderChosen();
+    loadHistory();
+  } catch (err) {
+    setIndicatorNote(err.status === 0 ? OFFLINE : sentence(err.message));
+  }
+}
+
+const isEditable = (inp) => inp.shown && inp.name
+  && (['integer', 'float', 'bool'].includes(inp.type) || (inp.options && inp.options.length));
+
+function inputField(indicator, inp) {
+  if (inp.type === 'bool') {
+    const box = el('input', { type: 'checkbox' });
+    box.checked = Boolean(indicator.values[inp.id]);
+    box.addEventListener('change', () => {
+      indicator.values[inp.id] = box.checked;
+      loadHistory();
+    });
+    return el('label', { class: 'field-check' }, box, inp.name);
+  }
+  let control;
+  if (inp.options && inp.options.length) {
+    control = el('select', { class: 'field-input field-input-small' },
+      ...inp.options.map((option) => el('option', { value: String(option) }, String(option))));
+    control.value = String(indicator.values[inp.id]);
+    control.addEventListener('change', () => {
+      indicator.values[inp.id] = control.value;
+      loadHistory();
+    });
+  } else {
+    control = el('input', { class: 'field-input field-input-small', type: 'number',
+                            step: inp.type === 'integer' ? '1' : 'any', inputmode: 'decimal' });
+    control.value = String(indicator.values[inp.id]);
+    control.addEventListener('input', () => {
+      indicator.values[inp.id] = control.value.trim();  // empty falls back to TradingView's default
+      scheduleHistory();
+    });
+  }
+  return el('label', { class: 'field' }, inp.name, control);
+}
+
+function renderChosen() {
+  const list = $('chosen');
+  list.textContent = '';
+  for (const indicator of state.indicators) {
+    const fields = indicator.inputs.filter(isEditable).slice(0, MAX_INPUT_FIELDS).map((inp) => inputField(indicator, inp));
+    const remove = el('button', { class: 'link', type: 'button', 'aria-label': `Remove ${indicator.short}` }, 'Remove');
+    remove.addEventListener('click', () => {
+      state.indicators = state.indicators.filter((other) => other !== indicator);
+      setIndicatorNote('');
+      renderChosen();
+      loadHistory();
+    });
+    list.append(el('li', { class: 'chosen-row' },
+      el('span', { class: 'chosen-name' },
+        el('span', { class: 'chosen-short' }, indicator.short), indicator.name === indicator.short ? '' : indicator.name),
+      el('span', { class: 'chosen-fields' }, ...fields),
+      remove));
+  }
+}
+
+/* ---------- CSV export ---------- */
+
+function csvCell(value) {
+  if (value == null) return '';
+  let text = Array.isArray(value) ? value.join('; ') : String(value);
+  // Text that a spreadsheet would run as a formula is stored as text instead. Numbers are left alone.
+  if (typeof value === 'string' && /^[=+\-@]/.test(text)) text = "'" + text;
+  return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+}
+const toCsv = (rows) => rows.map((row) => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+const fileStem = (ticker) => ticker.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+function historyCsv() {
+  const columns = Object.keys(state.bars.bars[0]);  // price columns, then one per indicator plot
+  return toCsv([columns, ...state.bars.bars.map((bar) => columns.map((key) => bar[key]))]);
+}
+
+function exportCsv(filename, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  const link = el('a', { href: url, download: filename });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const rows = text.trimEnd().split('\r\n').length - 1;
+  $('export-note').textContent = `Exported ${filename} (${grouped(rows)} rows).`;
+}
+
+$('export-history').addEventListener('click', () => {
+  if (!state.data || !state.bars || !state.bars.bars.length) {
+    $('export-note').textContent = 'There are no bars to export for this symbol at this bar size.';
+    return;
+  }
+  exportCsv(`${fileStem(state.data.ticker)}_${state.bars.interval}.csv`, historyCsv());
+});
+
+/* ---------- suggestion lists ---------- */
+
+// A text input with a list of matches under it. `cells` gives the three texts of a row; `enter`
+// handles Enter when no row is highlighted (leave it out to let the surrounding form submit).
+function combobox(input, list, { search, cells, choose, enter, skip = () => false }) {
+  let options = [];
+  let active = -1;
+  let timer = 0;
+  let seq = 0;
+
+  function close() {
+    clearTimeout(timer);
+    seq += 1;  // drop any search still in flight
+    options = [];
+    active = -1;
+    list.hidden = true;
+    list.textContent = '';
+    input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');
+  }
+
+  function setActive(index) {
+    active = index;
+    [...list.children].forEach((node, i) => node.setAttribute('aria-selected', String(i === index)));
+    input.setAttribute('aria-activedescendant', list.children[index].id);
+    list.children[index].scrollIntoView({ block: 'nearest' });
+  }
+
+  function pick(match) {
+    close();
+    choose(match);
+  }
+
+  async function suggest(text) {
+    const mine = ++seq;
+    let matches;
+    try {
+      matches = await search(text);
+    } catch {
+      return;  // the action itself reports errors; a failed suggestion is not worth interrupting typing
+    }
+    if (mine !== seq || input.value.trim() !== text || !matches.length) return;
+    options = matches.slice(0, 8);
+    list.textContent = '';
+    options.forEach((match, i) => {
+      const [key, name, kind] = cells(match);
+      const row = el('li', { class: 'suggestion', role: 'option', id: `${list.id}-${i}`, 'aria-selected': 'false' },
+        el('span', { class: 'suggestion-ticker' }, key),
+        el('span', { class: 'suggestion-name' }, name),
+        el('span', { class: 'suggestion-type' }, kind));
+      row.addEventListener('mousedown', (event) => event.preventDefault());  // keep focus in the input
+      row.addEventListener('click', () => pick(match));
+      list.append(row);
+    });
+    active = -1;
+    list.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  input.addEventListener('input', () => {
+    const text = input.value.trim();
+    close();
+    if (text.length >= 2 && !skip(text)) timer = setTimeout(() => suggest(text), 200);
+  });
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && (list.hidden || active < 0)) {
+      if (!enter) return;
+      event.preventDefault();
+      close();
+      enter(input.value);
+    } else if (list.hidden) {
+      return;
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      setActive((active + step + options.length + (active < 0 && step < 0 ? 1 : 0)) % options.length);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      pick(options[active]);
+    } else if (event.key === 'Escape') {
+      close();
+    }
+  });
+  input.addEventListener('blur', close);
+  return { close };
+}
+
+function chooseTicker(ticker) {
+  $('q').value = ticker;
+  window.scrollTo({ top: 0 });
+  lookup(ticker);
+}
+
+const entityBox = combobox($('q'), $('suggestions'), {
+  search: (text) => api('/api/search', { q: text }),
+  cells: (match) => [match.ticker, match.description, match.type],
+  choose: (match) => chooseTicker(match.ticker),
+  skip: (text) => TICKER.test(text),
+});
+
+combobox($('indicator-q'), $('indicator-suggestions'), {
+  search: (text) => api('/api/indicators', { q: text }),
+  cells: (match) => [match.short, match.name, match.author ? `by ${match.author}` : 'built-in'],
+  choose: (match) => addIndicator(match.id),
+  enter: addIndicator,  // a name, an id, or a name with inputs such as SMA(200)
+  skip: (text) => text.includes('('),
+});
+
+/* ---------- wiring ---------- */
+
+$('ask').addEventListener('submit', (event) => {
+  event.preventDefault();
+  lookup($('q').value);
+});
+document.querySelectorAll('[data-q]').forEach((button) => {
+  button.addEventListener('click', () => {
+    $('q').value = button.dataset.q;
+    lookup(button.dataset.q);
+  });
+});
+$('interval').addEventListener('change', loadHistory);
+$('bars').addEventListener('input', scheduleHistory);
+
+function fromUrl() {
+  const q = new URLSearchParams(location.search).get('q');
+  if (q) {
+    $('q').value = q;
+    lookup(q, { push: false });
+  } else {
+    state.lookupSeq += 1;
+    state.data = null;
+    state.bars = null;
+    $('q').value = '';
+    $('sheet').hidden = true;
+    setStatus('');
+    document.title = 'TradingView data';
+  }
+}
+window.addEventListener('popstate', fromUrl);
+
+fromUrl();
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 
 import requests
 
-from ._http import HEADERS, TIMEOUT, TradingViewError
+from ._http import HEADERS, TIMEOUT, NotFound, TradingViewError
 
 SEARCH_URL = "https://symbol-search.tradingview.com/symbol_search/v3/"
 # "NSE:RELIANCE", "BITSTAMP:BTCUSD", "NSE:HDFCBANK1!" - already a symbol, no search needed.
@@ -92,5 +92,5 @@ def resolve(
     matches = search(name, exchange=exchange, asset_type=asset_type, country=country, limit=limit)
     if not matches:
         scope = "".join(f" ({k}={v})" for k, v in (("exchange", exchange), ("type", asset_type)) if v)
-        raise TradingViewError(f"no TradingView symbol found for {name!r}{scope}")
+        raise NotFound(f"no TradingView symbol found for {name!r}{scope}")
     return matches[0], matches[1:]
